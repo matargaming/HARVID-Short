@@ -14,6 +14,9 @@ abstract class Episode with _$Episode {
     required int durationSec,
     @Default(false) bool isVipLocked,
     int? bonusUnlockCost,
+    @Default(0) int watchCount,
+    @Default(0) int likeCount,
+    @Default(0) int shareCount,
   }) = _Episode;
 
   factory Episode.fromJson(Map<String, dynamic> json) =>

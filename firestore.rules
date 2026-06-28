@@ -162,6 +162,8 @@ service cloud.firestore {
       let newUnlocked = request.resource.data.get('unlockedEpisodeIds', []);
       return changed.hasOnly([
           'favoriteSeriesIds',
+          'likedEpisodeIds',
+          'followedSeriesIds',
           'lastDailyCheckIn',
           'bonus',
           'unlockedEpisodeIds'
@@ -181,6 +183,43 @@ service cloud.firestore {
             && newUnlocked.hasAll(oldUnlocked)
             && newUnlocked.size() == oldUnlocked.size() + 1
           )
+	        );
+    }
+
+    function oneStepCounterChange(field) {
+      let oldValue = resource.data.get(field, 0);
+      let newValue = request.resource.data.get(field, 0);
+      return oldValue is int
+        && newValue is int
+        && (
+          newValue == oldValue + 1
+          || (oldValue > 0 && newValue == oldValue - 1)
+        );
+    }
+
+    function oneStepCounterIncrement(field) {
+      let oldValue = resource.data.get(field, 0);
+      let newValue = request.resource.data.get(field, 0);
+      return oldValue is int
+        && newValue is int
+        && newValue == oldValue + 1;
+    }
+
+    function validSeriesSocialCounterUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return isSignedIn()
+        && (
+          (changed.hasOnly(['saveCount']) && oneStepCounterChange('saveCount'))
+          || (changed.hasOnly(['followerCount']) && oneStepCounterChange('followerCount'))
+        );
+    }
+
+    function validEpisodeSocialCounterUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return isSignedIn()
+        && (
+          (changed.hasOnly(['likeCount']) && oneStepCounterChange('likeCount'))
+          || (changed.hasOnly(['shareCount']) && oneStepCounterIncrement('shareCount'))
         );
     }
 
@@ -188,7 +227,9 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSuperAdmin()
         || (isProvider() && requestSetsProviderOwnership());
-      allow update: if isSuperAdmin() || providerUpdateOwnContent();
+      allow update: if isSuperAdmin()
+        || providerUpdateOwnContent()
+        || validSeriesSocialCounterUpdate();
       allow delete: if isSuperAdmin();
     }
 
@@ -196,7 +237,9 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSuperAdmin()
         || (isProvider() && requestSetsProviderOwnership());
-      allow update: if isSuperAdmin() || providerUpdateOwnContent();
+      allow update: if isSuperAdmin()
+        || providerUpdateOwnContent()
+        || validEpisodeSocialCounterUpdate();
       allow delete: if isSuperAdmin();
     }
 

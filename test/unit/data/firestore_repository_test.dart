@@ -74,6 +74,39 @@ void main() {
       expect(unsaved.favoriteSeriesIds, ['existing']);
     });
 
+    test('daily check-in grant is idempotent for the same reference', () async {
+      final db = FakeFirebaseFirestore();
+      final user = db.collection('users').doc('u1');
+      await user.set({
+        'email': 'u@example.com',
+        'bonus': 0,
+        'createdAt': Timestamp.fromDate(DateTime.utc(2026, 6, 2)),
+      });
+
+      final repo = FirestoreUserRepository(db);
+      await repo.grantDemoBonus(
+        userId: 'u1',
+        type: domain.TxType.dailyCheckIn,
+        amount: 5,
+        reference: 'sparkDailyCheckIn',
+        dailyCheckInAt: DateTime.utc(2026, 6, 4),
+      );
+      await repo.grantDemoBonus(
+        userId: 'u1',
+        type: domain.TxType.dailyCheckIn,
+        amount: 5,
+        reference: 'sparkDailyCheckIn',
+        dailyCheckInAt: DateTime.utc(2026, 6, 4),
+      );
+
+      final userData = (await user.get()).data()!;
+      final transactions = await user.collection('transactions').get();
+
+      expect(userData['bonus'], 5);
+      expect(transactions.docs, hasLength(1));
+      expect(transactions.docs.single.id, 'sparkDailyCheckIn');
+    });
+
     test('user deletion removes profile data but retains transaction ledger',
         () async {
       final db = FakeFirebaseFirestore();

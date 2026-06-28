@@ -24,6 +24,10 @@ export type SeriesMeta = {
   isVip: boolean;
 };
 
+function isHttpUrl(value: string): boolean {
+  return value.startsWith("http://") || value.startsWith("https://");
+}
+
 /** New series: first episode frame. Existing series: keep cover unless user overrides. */
 export function resolveSeriesCoverUrl(input: {
   manualCover: string;
@@ -32,13 +36,16 @@ export function resolveSeriesCoverUrl(input: {
   episodeOrder: number;
   existingCoverUrl?: string | null;
 }): string {
-  if (input.manualCover.trim()) {
-    return input.manualCover.trim();
+  // Only honor a manual cover when it is a real URL — guards against junk text
+  // (e.g. "ddd") being saved as the cover and rendering as a broken image.
+  const manual = input.manualCover.trim();
+  if (manual && isHttpUrl(manual)) {
+    return manual;
   }
   if (input.isNewSeries && input.episodeOrder === 1) {
     return input.episodeThumbnailUrl;
   }
-  if (input.existingCoverUrl?.trim()) {
+  if (input.existingCoverUrl?.trim() && isHttpUrl(input.existingCoverUrl.trim())) {
     return input.existingCoverUrl.trim();
   }
   return input.episodeThumbnailUrl;

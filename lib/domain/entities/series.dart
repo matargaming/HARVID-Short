@@ -18,6 +18,9 @@ abstract class Series with _$Series {
     @Default(0) int totalDurationSec,
     required DateTime createdAt,
     @Default(0) int popularity,
+    @Default(0) int watchCount,
+    @Default(0) int saveCount,
+    @Default(0) int followerCount,
     @Default(true) bool isPublished,
   }) = _Series;
 

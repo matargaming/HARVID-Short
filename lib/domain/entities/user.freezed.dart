@@ -24,6 +24,8 @@ mixin _$AppUser {
   int get bonus;
   List<String> get favoriteSeriesIds;
   List<String> get unlockedEpisodeIds;
+  List<String> get likedEpisodeIds;
+  List<String> get followedSeriesIds;
   DateTime? get lastDailyCheckIn;
   DateTime get createdAt;
 
@@ -57,6 +59,10 @@ mixin _$AppUser {
                 .equals(other.favoriteSeriesIds, favoriteSeriesIds) &&
             const DeepCollectionEquality()
                 .equals(other.unlockedEpisodeIds, unlockedEpisodeIds) &&
+            const DeepCollectionEquality()
+                .equals(other.likedEpisodeIds, likedEpisodeIds) &&
+            const DeepCollectionEquality()
+                .equals(other.followedSeriesIds, followedSeriesIds) &&
             (identical(other.lastDailyCheckIn, lastDailyCheckIn) ||
                 other.lastDailyCheckIn == lastDailyCheckIn) &&
             (identical(other.createdAt, createdAt) ||
@@ -77,12 +83,14 @@ mixin _$AppUser {
       bonus,
       const DeepCollectionEquality().hash(favoriteSeriesIds),
       const DeepCollectionEquality().hash(unlockedEpisodeIds),
+      const DeepCollectionEquality().hash(likedEpisodeIds),
+      const DeepCollectionEquality().hash(followedSeriesIds),
       lastDailyCheckIn,
       createdAt);
 
   @override
   String toString() {
-    return 'AppUser(id: $id, email: $email, displayName: $displayName, photoUrl: $photoUrl, isVip: $isVip, vipExpiresAt: $vipExpiresAt, coins: $coins, bonus: $bonus, favoriteSeriesIds: $favoriteSeriesIds, unlockedEpisodeIds: $unlockedEpisodeIds, lastDailyCheckIn: $lastDailyCheckIn, createdAt: $createdAt)';
+    return 'AppUser(id: $id, email: $email, displayName: $displayName, photoUrl: $photoUrl, isVip: $isVip, vipExpiresAt: $vipExpiresAt, coins: $coins, bonus: $bonus, favoriteSeriesIds: $favoriteSeriesIds, unlockedEpisodeIds: $unlockedEpisodeIds, likedEpisodeIds: $likedEpisodeIds, followedSeriesIds: $followedSeriesIds, lastDailyCheckIn: $lastDailyCheckIn, createdAt: $createdAt)';
   }
 }
 
@@ -102,6 +110,8 @@ abstract mixin class $AppUserCopyWith<$Res> {
       int bonus,
       List<String> favoriteSeriesIds,
       List<String> unlockedEpisodeIds,
+      List<String> likedEpisodeIds,
+      List<String> followedSeriesIds,
       DateTime? lastDailyCheckIn,
       DateTime createdAt});
 }
@@ -128,6 +138,8 @@ class _$AppUserCopyWithImpl<$Res> implements $AppUserCopyWith<$Res> {
     Object? bonus = null,
     Object? favoriteSeriesIds = null,
     Object? unlockedEpisodeIds = null,
+    Object? likedEpisodeIds = null,
+    Object? followedSeriesIds = null,
     Object? lastDailyCheckIn = freezed,
     Object? createdAt = null,
   }) {
@@ -171,6 +183,14 @@ class _$AppUserCopyWithImpl<$Res> implements $AppUserCopyWith<$Res> {
       unlockedEpisodeIds: null == unlockedEpisodeIds
           ? _self.unlockedEpisodeIds
           : unlockedEpisodeIds // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      likedEpisodeIds: null == likedEpisodeIds
+          ? _self.likedEpisodeIds
+          : likedEpisodeIds // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      followedSeriesIds: null == followedSeriesIds
+          ? _self.followedSeriesIds
+          : followedSeriesIds // ignore: cast_nullable_to_non_nullable
               as List<String>,
       lastDailyCheckIn: freezed == lastDailyCheckIn
           ? _self.lastDailyCheckIn
@@ -288,6 +308,8 @@ extension AppUserPatterns on AppUser {
             int bonus,
             List<String> favoriteSeriesIds,
             List<String> unlockedEpisodeIds,
+            List<String> likedEpisodeIds,
+            List<String> followedSeriesIds,
             DateTime? lastDailyCheckIn,
             DateTime createdAt)?
         $default, {
@@ -307,6 +329,8 @@ extension AppUserPatterns on AppUser {
             _that.bonus,
             _that.favoriteSeriesIds,
             _that.unlockedEpisodeIds,
+            _that.likedEpisodeIds,
+            _that.followedSeriesIds,
             _that.lastDailyCheckIn,
             _that.createdAt);
       case _:
@@ -340,6 +364,8 @@ extension AppUserPatterns on AppUser {
             int bonus,
             List<String> favoriteSeriesIds,
             List<String> unlockedEpisodeIds,
+            List<String> likedEpisodeIds,
+            List<String> followedSeriesIds,
             DateTime? lastDailyCheckIn,
             DateTime createdAt)
         $default,
@@ -358,6 +384,8 @@ extension AppUserPatterns on AppUser {
             _that.bonus,
             _that.favoriteSeriesIds,
             _that.unlockedEpisodeIds,
+            _that.likedEpisodeIds,
+            _that.followedSeriesIds,
             _that.lastDailyCheckIn,
             _that.createdAt);
       case _:
@@ -390,6 +418,8 @@ extension AppUserPatterns on AppUser {
             int bonus,
             List<String> favoriteSeriesIds,
             List<String> unlockedEpisodeIds,
+            List<String> likedEpisodeIds,
+            List<String> followedSeriesIds,
             DateTime? lastDailyCheckIn,
             DateTime createdAt)?
         $default,
@@ -408,6 +438,8 @@ extension AppUserPatterns on AppUser {
             _that.bonus,
             _that.favoriteSeriesIds,
             _that.unlockedEpisodeIds,
+            _that.likedEpisodeIds,
+            _that.followedSeriesIds,
             _that.lastDailyCheckIn,
             _that.createdAt);
       case _:
@@ -430,10 +462,14 @@ class _AppUser implements AppUser {
       this.bonus = 0,
       final List<String> favoriteSeriesIds = const <String>[],
       final List<String> unlockedEpisodeIds = const <String>[],
+      final List<String> likedEpisodeIds = const <String>[],
+      final List<String> followedSeriesIds = const <String>[],
       this.lastDailyCheckIn,
       required this.createdAt})
       : _favoriteSeriesIds = favoriteSeriesIds,
-        _unlockedEpisodeIds = unlockedEpisodeIds;
+        _unlockedEpisodeIds = unlockedEpisodeIds,
+        _likedEpisodeIds = likedEpisodeIds,
+        _followedSeriesIds = followedSeriesIds;
   factory _AppUser.fromJson(Map<String, dynamic> json) =>
       _$AppUserFromJson(json);
 
@@ -476,6 +512,25 @@ class _AppUser implements AppUser {
     return EqualUnmodifiableListView(_unlockedEpisodeIds);
   }
 
+  final List<String> _likedEpisodeIds;
+  @override
+  @JsonKey()
+  List<String> get likedEpisodeIds {
+    if (_likedEpisodeIds is EqualUnmodifiableListView) return _likedEpisodeIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_likedEpisodeIds);
+  }
+
+  final List<String> _followedSeriesIds;
+  @override
+  @JsonKey()
+  List<String> get followedSeriesIds {
+    if (_followedSeriesIds is EqualUnmodifiableListView)
+      return _followedSeriesIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_followedSeriesIds);
+  }
+
   @override
   final DateTime? lastDailyCheckIn;
   @override
@@ -516,6 +571,10 @@ class _AppUser implements AppUser {
                 .equals(other._favoriteSeriesIds, _favoriteSeriesIds) &&
             const DeepCollectionEquality()
                 .equals(other._unlockedEpisodeIds, _unlockedEpisodeIds) &&
+            const DeepCollectionEquality()
+                .equals(other._likedEpisodeIds, _likedEpisodeIds) &&
+            const DeepCollectionEquality()
+                .equals(other._followedSeriesIds, _followedSeriesIds) &&
             (identical(other.lastDailyCheckIn, lastDailyCheckIn) ||
                 other.lastDailyCheckIn == lastDailyCheckIn) &&
             (identical(other.createdAt, createdAt) ||
@@ -536,12 +595,14 @@ class _AppUser implements AppUser {
       bonus,
       const DeepCollectionEquality().hash(_favoriteSeriesIds),
       const DeepCollectionEquality().hash(_unlockedEpisodeIds),
+      const DeepCollectionEquality().hash(_likedEpisodeIds),
+      const DeepCollectionEquality().hash(_followedSeriesIds),
       lastDailyCheckIn,
       createdAt);
 
   @override
   String toString() {
-    return 'AppUser(id: $id, email: $email, displayName: $displayName, photoUrl: $photoUrl, isVip: $isVip, vipExpiresAt: $vipExpiresAt, coins: $coins, bonus: $bonus, favoriteSeriesIds: $favoriteSeriesIds, unlockedEpisodeIds: $unlockedEpisodeIds, lastDailyCheckIn: $lastDailyCheckIn, createdAt: $createdAt)';
+    return 'AppUser(id: $id, email: $email, displayName: $displayName, photoUrl: $photoUrl, isVip: $isVip, vipExpiresAt: $vipExpiresAt, coins: $coins, bonus: $bonus, favoriteSeriesIds: $favoriteSeriesIds, unlockedEpisodeIds: $unlockedEpisodeIds, likedEpisodeIds: $likedEpisodeIds, followedSeriesIds: $followedSeriesIds, lastDailyCheckIn: $lastDailyCheckIn, createdAt: $createdAt)';
   }
 }
 
@@ -562,6 +623,8 @@ abstract mixin class _$AppUserCopyWith<$Res> implements $AppUserCopyWith<$Res> {
       int bonus,
       List<String> favoriteSeriesIds,
       List<String> unlockedEpisodeIds,
+      List<String> likedEpisodeIds,
+      List<String> followedSeriesIds,
       DateTime? lastDailyCheckIn,
       DateTime createdAt});
 }
@@ -588,6 +651,8 @@ class __$AppUserCopyWithImpl<$Res> implements _$AppUserCopyWith<$Res> {
     Object? bonus = null,
     Object? favoriteSeriesIds = null,
     Object? unlockedEpisodeIds = null,
+    Object? likedEpisodeIds = null,
+    Object? followedSeriesIds = null,
     Object? lastDailyCheckIn = freezed,
     Object? createdAt = null,
   }) {
@@ -631,6 +696,14 @@ class __$AppUserCopyWithImpl<$Res> implements _$AppUserCopyWith<$Res> {
       unlockedEpisodeIds: null == unlockedEpisodeIds
           ? _self._unlockedEpisodeIds
           : unlockedEpisodeIds // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      likedEpisodeIds: null == likedEpisodeIds
+          ? _self._likedEpisodeIds
+          : likedEpisodeIds // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      followedSeriesIds: null == followedSeriesIds
+          ? _self._followedSeriesIds
+          : followedSeriesIds // ignore: cast_nullable_to_non_nullable
               as List<String>,
       lastDailyCheckIn: freezed == lastDailyCheckIn
           ? _self.lastDailyCheckIn

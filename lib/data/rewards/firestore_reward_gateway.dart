@@ -21,11 +21,14 @@ class FirestoreRewardGateway implements RewardGateway {
 
     final userRef = _db.collection('users').doc(userId);
     final episodeRef = _db.collection('episodes').doc(episodeId);
-    final txRef = userRef.collection('transactions').doc();
+    final txRef = userRef
+        .collection('transactions')
+        .doc('episodeUnlock_${episodeId.replaceAll('/', '_')}');
 
     await _db.runTransaction((transaction) async {
       final userDoc = await transaction.get(userRef);
       final episodeDoc = await transaction.get(episodeRef);
+      final txDoc = await transaction.get(txRef);
       if (!userDoc.exists) {
         throw StateError('Sign in to unlock this episode.');
       }
@@ -39,7 +42,7 @@ class FirestoreRewardGateway implements RewardGateway {
       final unlockedEpisodeIds = rawUnlockedEpisodeIds is Iterable
           ? List<String>.from(rawUnlockedEpisodeIds)
           : <String>[];
-      if (unlockedEpisodeIds.contains(episodeId)) {
+      if (unlockedEpisodeIds.contains(episodeId) || txDoc.exists) {
         return;
       }
 

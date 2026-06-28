@@ -15,6 +15,9 @@ _Episode _$EpisodeFromJson(Map<String, dynamic> json) => _Episode(
       durationSec: (json['durationSec'] as num).toInt(),
       isVipLocked: json['isVipLocked'] as bool? ?? false,
       bonusUnlockCost: (json['bonusUnlockCost'] as num?)?.toInt(),
+      watchCount: (json['watchCount'] as num?)?.toInt() ?? 0,
+      likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
+      shareCount: (json['shareCount'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$EpisodeToJson(_Episode instance) => <String, dynamic>{
@@ -26,4 +29,7 @@ Map<String, dynamic> _$EpisodeToJson(_Episode instance) => <String, dynamic>{
       'durationSec': instance.durationSec,
       'isVipLocked': instance.isVipLocked,
       'bonusUnlockCost': instance.bonusUnlockCost,
+      'watchCount': instance.watchCount,
+      'likeCount': instance.likeCount,
+      'shareCount': instance.shareCount,
     };

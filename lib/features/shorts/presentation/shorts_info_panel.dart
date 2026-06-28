@@ -2,13 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../../core/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/episode.dart';
 import '../../../domain/entities/series.dart';
-import '../../../shared/widgets/save_series_button.dart';
 
 /// Frosted series info panel shown above the bottom nav on the Shorts tab.
 class ShortsInfoPanel extends ConsumerWidget {
@@ -37,79 +34,44 @@ class ShortsInfoPanel extends ConsumerWidget {
           onCollapse?.call();
         }
       },
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.12),
+      child: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 82, 34),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 42),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                series.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  height: 1.18,
+                  shadows: [Shadow(color: Colors.black87, blurRadius: 10)],
                 ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _CollapseHandle(onCollapse: onCollapse),
-                    Text(
-                      series.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'EP.${episode.order}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (description.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      _DescriptionPreview(
-                        description: description,
-                        onReadMore: () =>
-                            _showDescriptionSheet(context, series),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        SaveSeriesCircleButton(seriesId: series.id),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _WatchNowButton(
-                            seriesId: series.id,
-                            episode: episode,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GlassActionButton(
-                          icon: Icons.info_outline,
-                          label: 'DETAILS',
-                          onPressed: () =>
-                              context.push('/series/${series.id}'),
-                        ),
-                      ],
-                    ),
-                  ],
+              const SizedBox(height: 5),
+              Text(
+                'EP.${episode.order}',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  shadows: [Shadow(color: Colors.black87, blurRadius: 8)],
                 ),
               ),
-            ),
+              if (description.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _DescriptionPreview(
+                  description: description,
+                  onReadMore: () => _showDescriptionSheet(context, series),
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -208,39 +170,12 @@ class _CornerRevealClipper extends CustomClipper<Path> {
     final center = Offset(size.width - 41, size.height - 47);
     final maxRadius = size.longestSide * 1.25;
     final radius = (maxRadius * fraction).clamp(0.0, maxRadius);
-    return Path()
-      ..addOval(Rect.fromCircle(center: center, radius: radius));
+    return Path()..addOval(Rect.fromCircle(center: center, radius: radius));
   }
 
   @override
   bool shouldReclip(_CornerRevealClipper oldClipper) =>
       oldClipper.fraction != fraction;
-}
-
-/// Small grab handle hinting that the panel can be swiped right to collapse.
-class _CollapseHandle extends StatelessWidget {
-  const _CollapseHandle({this.onCollapse});
-
-  final VoidCallback? onCollapse;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.topRight,
-      child: GestureDetector(
-        onTap: onCollapse,
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 6, left: 12, top: 0),
-          child: Icon(
-            Icons.chevron_right,
-            size: 20,
-            color: Colors.white.withValues(alpha: 0.6),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// Collapsed representation of [ShortsInfoPanel]; tap or swipe left to expand.
@@ -341,58 +276,5 @@ class _DescriptionPreview extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _WatchNowButton extends ConsumerWidget {
-  const _WatchNowButton({
-    required this.seriesId,
-    required this.episode,
-  });
-
-  final String seriesId;
-  final Episode episode;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _onWatchNow(context, ref),
-        borderRadius: BorderRadius.circular(28),
-        child: Ink(
-          height: 52,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF7DD3FC),
-                Color(0xFF38BDF8),
-              ],
-            ),
-          ),
-          child: const Center(
-            child: Text(
-              'WATCH NOW',
-              style: TextStyle(
-                color: Color(0xFF0C4A6E),
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _onWatchNow(BuildContext context, WidgetRef ref) {
-    final user = ref.read(currentAppUserDocProvider).value;
-    if (episode.isVipLocked && !(user?.isVip ?? false)) {
-      context.push('/subscribe');
-      return;
-    }
-    context.push('/player/$seriesId/${episode.id}');
   }
 }

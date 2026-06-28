@@ -10,10 +10,13 @@ import 'package:shortigo/domain/entities/series.dart';
 import 'package:shortigo/domain/entities/user.dart';
 import 'package:shortigo/domain/interfaces/episode_repository.dart';
 import 'package:shortigo/domain/interfaces/series_repository.dart';
+import 'package:shortigo/domain/interfaces/social_actions_gateway.dart';
 import 'package:shortigo/domain/interfaces/user_repository.dart';
 import 'package:shortigo/features/series_detail/presentation/series_detail_page.dart';
 
 class _MockUserRepository extends Mock implements UserRepository {}
+
+class _MockSocialActionsGateway extends Mock implements SocialActionsGateway {}
 
 class _FakeSeriesRepository implements SeriesRepository {
   @override
@@ -65,6 +68,7 @@ Future<void> _pumpPage(
   WidgetTester tester, {
   required AppUser? user,
   required UserRepository userRepository,
+  required SocialActionsGateway socialActionsGateway,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -72,6 +76,7 @@ Future<void> _pumpPage(
         seriesRepositoryProvider.overrideWithValue(_FakeSeriesRepository()),
         episodeRepositoryProvider.overrideWithValue(_FakeEpisodeRepository()),
         userRepositoryProvider.overrideWithValue(userRepository),
+        socialActionsGatewayProvider.overrideWithValue(socialActionsGateway),
         currentAppUserDocProvider.overrideWith((_) => Stream.value(user)),
       ],
       child: const MaterialApp(
@@ -86,6 +91,7 @@ Future<void> _pumpRoutedPage(
   WidgetTester tester, {
   required AppUser? user,
   required UserRepository userRepository,
+  SocialActionsGateway? socialActionsGateway,
 }) async {
   final router = GoRouter(
     initialLocation: '/series/s1',
@@ -109,6 +115,9 @@ Future<void> _pumpRoutedPage(
         seriesRepositoryProvider.overrideWithValue(_FakeSeriesRepository()),
         episodeRepositoryProvider.overrideWithValue(_FakeEpisodeRepository()),
         userRepositoryProvider.overrideWithValue(userRepository),
+        socialActionsGatewayProvider.overrideWithValue(
+          socialActionsGateway ?? _MockSocialActionsGateway(),
+        ),
         currentAppUserDocProvider.overrideWith((_) => Stream.value(user)),
       ],
       child: MaterialApp.router(routerConfig: router),
@@ -120,14 +129,19 @@ Future<void> _pumpRoutedPage(
 void main() {
   testWidgets('saves an unsaved series for the signed-in user', (tester) async {
     final userRepository = _MockUserRepository();
+    final socialActionsGateway = _MockSocialActionsGateway();
     when(
-      () => userRepository.saveSeries(userId: 'u1', seriesId: 's1'),
+      () => socialActionsGateway.setSeriesSaved(
+        seriesId: 's1',
+        saved: true,
+      ),
     ).thenAnswer((_) async {});
 
     await _pumpPage(
       tester,
       user: _user(),
       userRepository: userRepository,
+      socialActionsGateway: socialActionsGateway,
     );
 
     expect(find.text('Save'), findsOneWidget);
@@ -136,20 +150,28 @@ void main() {
     await tester.pump();
 
     verify(
-      () => userRepository.saveSeries(userId: 'u1', seriesId: 's1'),
+      () => socialActionsGateway.setSeriesSaved(
+        seriesId: 's1',
+        saved: true,
+      ),
     ).called(1);
   });
 
   testWidgets('unsaves a saved series for the signed-in user', (tester) async {
     final userRepository = _MockUserRepository();
+    final socialActionsGateway = _MockSocialActionsGateway();
     when(
-      () => userRepository.unsaveSeries(userId: 'u1', seriesId: 's1'),
+      () => socialActionsGateway.setSeriesSaved(
+        seriesId: 's1',
+        saved: false,
+      ),
     ).thenAnswer((_) async {});
 
     await _pumpPage(
       tester,
       user: _user(favoriteSeriesIds: ['s1']),
       userRepository: userRepository,
+      socialActionsGateway: socialActionsGateway,
     );
 
     expect(find.text('Saved'), findsOneWidget);
@@ -158,7 +180,10 @@ void main() {
     await tester.pump();
 
     verify(
-      () => userRepository.unsaveSeries(userId: 'u1', seriesId: 's1'),
+      () => socialActionsGateway.setSeriesSaved(
+        seriesId: 's1',
+        saved: false,
+      ),
     ).called(1);
   });
 

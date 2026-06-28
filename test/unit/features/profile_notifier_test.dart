@@ -19,6 +19,51 @@ class _MockTransactionRepository extends Mock
 class _MockUserRepository extends Mock implements UserRepository {}
 
 void main() {
+  test('compacts duplicate activity rows by semantic reference', () {
+    final transactions = [
+      Transaction(
+        id: 'tx-new',
+        userId: 'user-1',
+        type: TxType.dailyCheckIn,
+        coinsDelta: 0,
+        bonusDelta: 5,
+        reference: 'sparkDailyCheckIn',
+        at: DateTime.utc(2026, 6, 4, 12),
+      ),
+      Transaction(
+        id: 'tx-old',
+        userId: 'user-1',
+        type: TxType.dailyCheckIn,
+        coinsDelta: 0,
+        bonusDelta: 5,
+        reference: 'sparkDailyCheckIn',
+        at: DateTime.utc(2026, 6, 4, 8),
+      ),
+      Transaction(
+        id: 'ad-1',
+        userId: 'user-1',
+        type: TxType.adReward,
+        coinsDelta: 0,
+        bonusDelta: 12,
+        reference: 'sparkRewardedAd:one',
+        at: DateTime.utc(2026, 6, 4, 7),
+      ),
+      Transaction(
+        id: 'ad-2',
+        userId: 'user-1',
+        type: TxType.adReward,
+        coinsDelta: 0,
+        bonusDelta: 12,
+        reference: 'sparkRewardedAd:two',
+        at: DateTime.utc(2026, 6, 4, 6),
+      ),
+    ];
+
+    final compacted = compactProfileTransactions(transactions);
+
+    expect(compacted.map((tx) => tx.id), ['tx-new', 'ad-1', 'ad-2']);
+  });
+
   test('keeps the latest live user when transactions update', () async {
     final authUser = _MockFirebaseUser();
     final userRepository = _MockUserRepository();

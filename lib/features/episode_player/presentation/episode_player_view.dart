@@ -12,6 +12,8 @@ class EpisodePlayerView extends StatefulWidget {
 
 class _EpisodePlayerViewState extends State<EpisodePlayerView>
     with WidgetsBindingObserver {
+  bool _isPausedByUser = false;
+
   @override
   void initState() {
     super.initState();
@@ -20,19 +22,49 @@ class _EpisodePlayerViewState extends State<EpisodePlayerView>
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final aspectRatio = episodePlayerViewportAspectRatio(
-            width: constraints.maxWidth,
-            height: constraints.maxHeight,
-          );
-          if (aspectRatio != null) {
-            widget.controller.setOverriddenAspectRatio(aspectRatio);
-          }
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _togglePlayback,
+      child: SizedBox.expand(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final aspectRatio = episodePlayerViewportAspectRatio(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                );
+                if (aspectRatio != null) {
+                  widget.controller.setOverriddenAspectRatio(aspectRatio);
+                }
 
-          return BetterPlayer(controller: widget.controller);
-        },
+                return BetterPlayer(controller: widget.controller);
+              },
+            ),
+            Center(
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: _isPausedByUser ? 1 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  child: Container(
+                    width: 92,
+                    height: 92,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 70,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -47,7 +79,18 @@ class _EpisodePlayerViewState extends State<EpisodePlayerView>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (shouldPauseVideoForLifecycle(state)) {
+      setState(() => _isPausedByUser = true);
       widget.controller.pause();
+    }
+  }
+
+  void _togglePlayback() {
+    final next = nextVideoPausedState(isPaused: _isPausedByUser);
+    setState(() => _isPausedByUser = next);
+    if (next) {
+      widget.controller.pause();
+    } else {
+      widget.controller.play();
     }
   }
 }
@@ -73,3 +116,5 @@ bool shouldPauseVideoForLifecycle(AppLifecycleState state) {
       true,
   };
 }
+
+bool nextVideoPausedState({required bool isPaused}) => !isPaused;

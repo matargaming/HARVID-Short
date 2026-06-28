@@ -14,7 +14,7 @@ class AdmobAdGateway implements AdGateway {
     phase: AdPhase.initializing,
   );
 
-  bool get _isTestAd => !env.isProd;
+  bool get _isTestAd => kDebugMode || !env.isProd;
 
   @override
   Stream<AdStatus> get status => _statusController.stream;
@@ -28,11 +28,11 @@ class AdmobAdGateway implements AdGateway {
   }
 
   String get _unitId {
-    if (defaultTargetPlatform == TargetPlatform.iOS &&
-        env.adMobRewardedUnitIdIos.isNotEmpty) {
-      return env.adMobRewardedUnitIdIos;
-    }
-    return env.adMobRewardedUnitIdAndroid;
+    return rewardedUnitIdFor(
+      env: env,
+      platform: defaultTargetPlatform,
+      forceTestAds: _isTestAd,
+    );
   }
 
   @override
@@ -209,4 +209,25 @@ class AdmobAdGateway implements AdGateway {
     });
     return completer.future;
   }
+}
+
+const googleTestRewardedUnitIdIos = 'ca-app-pub-3940256099942544/1712485313';
+const googleTestRewardedUnitIdAndroid =
+    'ca-app-pub-3940256099942544/5224354917';
+
+String rewardedUnitIdFor({
+  required Env env,
+  required TargetPlatform platform,
+  required bool forceTestAds,
+}) {
+  if (forceTestAds) {
+    return platform == TargetPlatform.iOS
+        ? googleTestRewardedUnitIdIos
+        : googleTestRewardedUnitIdAndroid;
+  }
+
+  if (platform == TargetPlatform.iOS && env.adMobRewardedUnitIdIos.isNotEmpty) {
+    return env.adMobRewardedUnitIdIos;
+  }
+  return env.adMobRewardedUnitIdAndroid;
 }

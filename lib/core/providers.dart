@@ -10,6 +10,7 @@ import '../data/firestore/series_repository.dart';
 import '../data/firestore/transaction_repository.dart';
 import '../data/firestore/user_repository.dart';
 import '../data/iap/revenuecat_iap_gateway.dart';
+import '../data/social/firestore_social_actions_gateway.dart';
 import '../data/rewards/firestore_reward_gateway.dart';
 import '../data/local/shortigo_database.dart';
 import '../data/rewards/reward_api_gateway.dart';
@@ -20,6 +21,7 @@ import '../domain/interfaces/episode_repository.dart';
 import '../domain/interfaces/iap_gateway.dart';
 import '../domain/interfaces/reward_gateway.dart';
 import '../domain/interfaces/series_repository.dart';
+import '../domain/interfaces/social_actions_gateway.dart';
 import '../domain/interfaces/transaction_repository.dart';
 import '../domain/interfaces/user_repository.dart';
 import '../domain/interfaces/video_source.dart';
@@ -69,6 +71,13 @@ final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
 
 final userRepositoryProvider = Provider<UserRepository>((ref) {
   return FirestoreUserRepository(ref.watch(firestoreProvider));
+});
+
+final socialActionsGatewayProvider = Provider<SocialActionsGateway>((ref) {
+  return FirestoreSocialActionsGateway(
+    db: ref.watch(firestoreProvider),
+    userId: ref.watch(firebaseAuthProvider).currentUser?.uid,
+  );
 });
 
 final videoSourceProvider = Provider<VideoSource>((ref) {

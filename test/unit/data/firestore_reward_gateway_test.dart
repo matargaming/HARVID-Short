@@ -23,6 +23,7 @@ void main() {
           .collection('transactions')
           .get();
       expect(transactions.docs, hasLength(1));
+      expect(transactions.docs.single.id, 'episodeUnlock_episode-1');
       expect(transactions.docs.single.data()['type'], 'spend');
       expect(transactions.docs.single.data()['bonusDelta'], -60);
       expect(

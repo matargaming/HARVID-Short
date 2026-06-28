@@ -98,24 +98,36 @@ class FirestoreUserRepository implements UserRepository {
   }) async {
     final now = DateTime.now().toUtc();
     final userRef = _db.collection('users').doc(userId);
-    final txRef = userRef.collection('transactions').doc();
-    final batch = _db.batch();
+    final txRef = type == domain.TxType.dailyCheckIn
+        ? userRef.collection('transactions').doc(_transactionDocId(reference))
+        : userRef.collection('transactions').doc();
 
-    batch.update(userRef, {
-      'bonus': FieldValue.increment(amount),
-      if (dailyCheckInAt != null)
-        'lastDailyCheckIn': dailyCheckInAt.toUtc().toIso8601String(),
-    });
-    batch.set(txRef, {
-      'id': txRef.id,
-      'userId': userId,
-      'type': type.name,
-      'coinsDelta': 0,
-      'bonusDelta': amount,
-      'reference': reference,
-      'at': now.toIso8601String(),
-    });
+    await _db.runTransaction((transaction) async {
+      if (type == domain.TxType.dailyCheckIn) {
+        final existingTx = await transaction.get(txRef);
+        if (existingTx.exists) {
+          return;
+        }
+      }
 
-    await batch.commit();
+      transaction.update(userRef, {
+        'bonus': FieldValue.increment(amount),
+        if (dailyCheckInAt != null)
+          'lastDailyCheckIn': dailyCheckInAt.toUtc().toIso8601String(),
+      });
+      transaction.set(txRef, {
+        'id': txRef.id,
+        'userId': userId,
+        'type': type.name,
+        'coinsDelta': 0,
+        'bonusDelta': amount,
+        'reference': reference,
+        'at': now.toIso8601String(),
+      });
+    });
+  }
+
+  String _transactionDocId(String reference) {
+    return reference.replaceAll('/', '_');
   }
 }

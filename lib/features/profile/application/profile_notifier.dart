@@ -16,6 +16,29 @@ class ProfileState {
   final List<Transaction> transactions;
 }
 
+List<Transaction> compactProfileTransactions(List<Transaction> transactions) {
+  final seen = <String>{};
+  final compacted = <Transaction>[];
+
+  for (final transaction in transactions) {
+    final key = _profileTransactionKey(transaction);
+    if (seen.add(key)) {
+      compacted.add(transaction);
+    }
+  }
+
+  return compacted;
+}
+
+String _profileTransactionKey(Transaction transaction) {
+  final reference = transaction.reference;
+  if (reference != null && reference.isNotEmpty) {
+    return '${transaction.type.name}:$reference';
+  }
+
+  return transaction.id;
+}
+
 class ProfileNotifier extends AsyncNotifier<ProfileState> {
   StreamSubscription<List<Transaction>>? _txSub;
   StreamSubscription<AppUser>? _userSub;
@@ -44,9 +67,12 @@ class ProfileNotifier extends AsyncNotifier<ProfileState> {
       onError: firstUser.completeError,
     );
     _txSub = txRepo.watchForUser(auth.uid).listen((transactions) {
-      latestTransactions = transactions;
+      latestTransactions = compactProfileTransactions(transactions);
       state = AsyncData(
-        ProfileState(user: state.value?.user, transactions: transactions),
+        ProfileState(
+          user: state.value?.user,
+          transactions: latestTransactions,
+        ),
       );
     });
     ref.onDispose(() {

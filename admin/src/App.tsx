@@ -24,7 +24,7 @@ import { auth, db, firebaseConfigError } from "./firebase";
 import { ActivityLog } from "./components/ActivityLog";
 import { CatalogHealth } from "./components/CatalogHealth";
 import { Dashboard } from "./components/Dashboard";
-import { FileDropzone } from "./components/FileDropzone";
+import { FileDropzone, MultiFileDropzone } from "./components/FileDropzone";
 import { MediaLibrary } from "./components/MediaLibrary";
 import { MediaPreview } from "./components/MediaPreview";
 import { ProvidersAdmin } from "./components/ProvidersAdmin";
@@ -40,6 +40,7 @@ import {
   formatFileSize,
   normalizeCloudinaryEpisodeUrls,
   uploadToCloudinaryWithProgress,
+  type UploadProgress,
 } from "./lib/cloudinary";
 import {
   cloudinaryPublicIdFromUrl,
@@ -151,6 +152,8 @@ export function App() {
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [mediaMode, setMediaMode] = useState<"single" | "bulk">("single");
+  const [bulkFiles, setBulkFiles] = useState<File[]>([]);
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [status, setStatus] = useState("Ready");
   const [view, setView] = useState<AppView>("upload");
@@ -401,6 +404,7 @@ export function App() {
   function resetEpisodeForm(keepSeries: boolean) {
     setVideoFile(null);
     setThumbnailFile(null);
+    setBulkFiles([]);
     setVideoUrl("");
     setThumbnailUrl("");
     setReplaceExisting(false);
@@ -438,10 +442,14 @@ export function App() {
     episodeCount: number;
   };
 
-  async function persistEpisode(media: ResolvedMedia): Promise<PublishResult> {
+  async function persistEpisode(
+    media: ResolvedMedia,
+    opts?: { orderOverride?: number },
+  ): Promise<PublishResult> {
     if (!db) {
       throw new Error("Firestore is not ready.");
     }
+    const episodeOrder = opts?.orderOverride ?? order;
     const safeSeriesId = activeSeriesId.trim();
     if (!safeSeriesId) {
       throw new Error("Choose or create a series first.");
@@ -470,11 +478,11 @@ export function App() {
       manualCover: seriesCoverUrl,
       episodeThumbnailUrl: safeThumbnailUrl,
       isNewSeries,
-      episodeOrder: order,
+      episodeOrder,
       existingCoverUrl: existingCover,
     });
     const safeDuration = media.durationSec || durationSec;
-    const episodeId = `${safeSeriesId}_e${order}`;
+    const episodeId = `${safeSeriesId}_e${episodeOrder}`;
     const episodeRef = doc(db, "episodes", episodeId);
     const seriesMeta: SeriesMeta = {
       title: safeSeriesTitle,
@@ -516,7 +524,7 @@ export function App() {
     const episodePayload: Record<string, unknown> = {
       id: episodeId,
       seriesId: safeSeriesId,
-      order,
+      order: episodeOrder,
       isVipLocked,
       ...(!isVipLocked && bonusUnlockCost > 0 ? { bonusUnlockCost } : {}),
       durationSec: safeDuration,
@@ -575,7 +583,7 @@ export function App() {
         targetId: episodeId,
         seriesId: safeSeriesId,
         metadata: {
-          order,
+          order: episodeOrder,
           durationSec: safeDuration,
           seriesCreated: seriesCreate.created,
         },
@@ -610,9 +618,181 @@ export function App() {
       episodeId,
       seriesId: safeSeriesId,
       seriesTitle: safeSeriesTitle,
-      episodeOrder: order,
+      episodeOrder,
       episodeCount: stats.episodeCount,
     };
+  }
+
+  /** Upload one episode's media to Cloudinary (auto thumbnail), no form state. */
+  async function uploadEpisodeMedia(
+    videoFileArg: File,
+    thumbnailFileArg: File | null,
+    onVideoProgress: (progress: UploadProgress) => void,
+    onThumbProgress?: (progress: UploadProgress) => void,
+  ): Promise<ResolvedMedia> {
+    const uploadedVideo = await uploadToCloudinaryWithProgress(
+      videoFileArg,
+      "video",
+      onVideoProgress,
+    );
+    const deliveryUrl = cloudinaryVideoDeliveryUrl(uploadedVideo);
+    const detectedDuration = Math.max(
+      1,
+      Math.round(uploadedVideo.duration ?? 0),
+    );
+
+    let resolvedThumbnailUrl: string;
+    if (thumbnailFileArg) {
+      const uploadedThumb = await uploadToCloudinaryWithProgress(
+        thumbnailFileArg,
+        "image",
+        onThumbProgress ?? (() => {}),
+      );
+      resolvedThumbnailUrl = uploadedThumb.secure_url;
+    } else {
+      resolvedThumbnailUrl = cloudinaryGeneratedThumbnailUrl(uploadedVideo);
+    }
+
+    if (user && studioAccess && studioAccess.role !== "none") {
+      await writeAuditEvent({
+        action: "upload.cloudinary.success",
+        actorUid: user.uid,
+        actorEmail: user.email,
+        role: studioAccess.role,
+        providerId: studioAccess.providerId,
+        targetType: "cloudinary",
+        targetId: cloudinaryPublicIdFromUrl(deliveryUrl),
+        seriesId: activeSeriesId.trim() || null,
+        metadata: {
+          fileName: videoFileArg.name,
+          durationSec: detectedDuration,
+        },
+      });
+    }
+
+    return {
+      videoUrl: deliveryUrl,
+      thumbnailUrl: resolvedThumbnailUrl,
+      durationSec: detectedDuration,
+    };
+  }
+
+  async function handleBulkUploadAndPublish() {
+    if (!studioAccess?.canPublish) {
+      toast.error(
+        "Cannot publish",
+        `Create or activate adminUsers/${user?.uid ?? "{uid}"} in Firestore first.`,
+      );
+      return;
+    }
+    const safeSeriesId = activeSeriesId.trim();
+    if (!safeSeriesId) {
+      toast.error("Bulk upload", "Choose or create a series first.");
+      return;
+    }
+    if (bulkFiles.length === 0) {
+      toast.error("Bulk upload", "Select one or more video files first.");
+      return;
+    }
+    const configError = cloudinaryConfigError();
+    if (configError) {
+      toast.error("Cloudinary not configured", configError);
+      return;
+    }
+
+    setLoading(true);
+    setUploadingMedia(true);
+    setOverlayOpen(true);
+    setOverlayIndeterminate(false);
+    setOverlayPercent(0);
+    setOverlaySteps([]);
+
+    let startOrder = order;
+    if (startOrder < 1) {
+      startOrder = await fetchNextEpisodeOrder(safeSeriesId);
+    }
+
+    const total = bulkFiles.length;
+    const failures: { name: string; error: string }[] = [];
+    let lastResult: PublishResult | null = null;
+
+    try {
+      for (let i = 0; i < total; i++) {
+        const file = bulkFiles[i];
+        const epOrder = startOrder + i;
+        setOverlayIndeterminate(false);
+        setOverlayPercent(0);
+        setOverlayTitle(`Uploading episode ${i + 1} of ${total}`);
+        setOverlaySubtitle(`EP.${epOrder} · ${file.name}`);
+        setStatus(`Uploading ${file.name} (${i + 1}/${total})…`);
+
+        try {
+          const media = await uploadEpisodeMedia(
+            file,
+            null,
+            ({ loaded, total: t }) => {
+              const percent =
+                t > 0 ? Math.min(100, Math.round((loaded / t) * 100)) : 0;
+              setOverlayPercent(percent);
+              setOverlaySubtitle(
+                `EP.${epOrder} · ${file.name} · ${formatFileSize(loaded)} / ${formatFileSize(t)}`,
+              );
+            },
+          );
+
+          setOverlayIndeterminate(true);
+          setOverlayTitle(`Publishing episode ${i + 1} of ${total}`);
+          setOverlaySubtitle(`EP.${epOrder} · ${file.name}`);
+          lastResult = await persistEpisode(media, { orderOverride: epOrder });
+        } catch (error) {
+          const message = toUserMessage(error);
+          failures.push({ name: file.name, error: message });
+          logError("Bulk episode failed", error, {
+            fileName: file.name,
+            order: epOrder,
+          });
+        }
+      }
+
+      setBulkFiles([]);
+      await refreshSeriesList();
+      if (lastResult) {
+        setSeriesMode("existing");
+        setSelectedSeriesId(lastResult.seriesId);
+        await refreshNextEpisodeMeta(lastResult.seriesId);
+        await refreshPublishedEpisodes(lastResult.seriesId);
+      }
+
+      const succeeded = total - failures.length;
+      if (failures.length === 0) {
+        notifySuccess(
+          "Bulk publish complete",
+          `${succeeded} episode(s) published to "${lastResult?.seriesTitle ?? safeSeriesId}".`,
+        );
+      } else if (succeeded > 0) {
+        toast.error(
+          "Bulk publish finished with errors",
+          `${succeeded} published, ${failures.length} failed: ${failures
+            .map((f) => f.name)
+            .join(", ")}.`,
+        );
+        setStatus(
+          `Failed: ${failures.length} of ${total} episodes did not publish.`,
+        );
+      } else {
+        notifyError(
+          "Bulk publish failed",
+          new Error(failures.map((f) => `${f.name}: ${f.error}`).join("; ")),
+        );
+      }
+    } finally {
+      setLoading(false);
+      setUploadingMedia(false);
+      setOverlayOpen(false);
+      setOverlayIndeterminate(false);
+      setOverlayPercent(0);
+      setOverlaySteps([]);
+    }
   }
 
   async function finishPublish(result: PublishResult): Promise<void> {
@@ -1175,11 +1355,19 @@ export function App() {
                 onChange={(e) => setSeriesCoverUrl(e.target.value)}
                 placeholder="Leave empty to use EP.1's first frame"
               />
-              <p className="hint">
-                Leave empty — on publish, the cover is set from the first frame
-                of this series' first episode. Only paste a URL here to override
-                with a custom cover.
-              </p>
+              {seriesCoverUrl.trim() && !isHttpUrl(seriesCoverUrl.trim()) ? (
+                <p className="hint hint--warn">
+                  Not a valid URL — this will be ignored and the cover will use
+                  EP.1's first frame instead. Paste a full https:// link to set
+                  a custom cover.
+                </p>
+              ) : (
+                <p className="hint">
+                  Leave empty — on publish, the cover is set from the first frame
+                  of this series' first episode. Only paste a URL here to override
+                  with a custom cover.
+                </p>
+              )}
             </div>
           )}
 
@@ -1336,106 +1524,186 @@ export function App() {
 
         <section className="card">
           <h2 className="section-title">Media</h2>
+          <div className="segmented" role="tablist" aria-label="Upload mode">
+            <button
+              type="button"
+              className={mediaMode === "single" ? "is-active" : ""}
+              disabled={uploadingMedia || loading}
+              onClick={() => setMediaMode("single")}
+            >
+              Single episode
+            </button>
+            <button
+              type="button"
+              className={mediaMode === "bulk" ? "is-active" : ""}
+              disabled={uploadingMedia || loading}
+              onClick={() => setMediaMode("bulk")}
+            >
+              Multiple episodes
+            </button>
+          </div>
           <p className="hint">
             Video is cropped to 9:16 on Cloudinary for fullscreen mobile playback.
           </p>
 
-          <FileDropzone
-            label="Video"
-            hint="MP4 or MOV recommended"
-            accept="video/*"
-            file={videoFile}
-            disabled={uploadingMedia || loading}
-            onFile={setVideoFile}
-          />
+          {mediaMode === "single" ? (
+            <>
+              <FileDropzone
+                label="Video"
+                hint="MP4 or MOV recommended"
+                accept="video/*"
+                file={videoFile}
+                disabled={uploadingMedia || loading}
+                onFile={setVideoFile}
+              />
 
-          <FileDropzone
-            label="Thumbnail (optional)"
-            hint="Leave empty to auto-generate from video"
-            accept="image/*"
-            file={thumbnailFile}
-            disabled={uploadingMedia || loading}
-            onFile={setThumbnailFile}
-          />
+              <FileDropzone
+                label="Thumbnail (optional)"
+                hint="Leave empty to auto-generate from video"
+                accept="image/*"
+                file={thumbnailFile}
+                disabled={uploadingMedia || loading}
+                onFile={setThumbnailFile}
+              />
 
-          <MediaPreview
-            videoUrl={videoUrl}
-            thumbnailUrl={thumbnailUrl}
-            durationSec={durationSec}
-          />
+              <MediaPreview
+                videoUrl={videoUrl}
+                thumbnailUrl={thumbnailUrl}
+                durationSec={durationSec}
+              />
 
-          <div className="actions">
-            <button
-              className="btn btn--success"
-              disabled={
-                !user ||
-                !videoFile ||
-                uploadingMedia ||
-                loading ||
-                !cloudinaryReady ||
-                !activeSeriesId.trim() ||
-                !studioAccess?.canPublish
-              }
-              type="button"
-              onClick={handleUploadAndPublish}
-              title={
-                !studioAccess?.canPublish
-                  ? "Requires an active adminUsers/{uid} document"
-                  : undefined
-              }
-            >
-              {uploadingMedia || loading
-                ? "Working…"
-                : "Upload & Publish to app"}
-            </button>
-            <button
-              className="btn btn--ghost"
-              disabled={loading || uploadingMedia}
-              type="button"
-              onClick={() => {
-                resetEpisodeForm(true);
-                void refreshNextEpisodeMeta(activeSeriesId);
-                toast.info("Form cleared", "Ready for the next upload.");
-                setStatus("Form cleared. Ready for next upload.");
-              }}
-            >
-              Clear &amp; next
-            </button>
-          </div>
+              <div className="actions">
+                <button
+                  className="btn btn--success"
+                  disabled={
+                    !user ||
+                    !videoFile ||
+                    uploadingMedia ||
+                    loading ||
+                    !cloudinaryReady ||
+                    !activeSeriesId.trim() ||
+                    !studioAccess?.canPublish
+                  }
+                  type="button"
+                  onClick={handleUploadAndPublish}
+                  title={
+                    !studioAccess?.canPublish
+                      ? "Requires an active adminUsers/{uid} document"
+                      : undefined
+                  }
+                >
+                  {uploadingMedia || loading
+                    ? "Working…"
+                    : "Upload & Publish to app"}
+                </button>
+                <button
+                  className="btn btn--ghost"
+                  disabled={loading || uploadingMedia}
+                  type="button"
+                  onClick={() => {
+                    resetEpisodeForm(true);
+                    void refreshNextEpisodeMeta(activeSeriesId);
+                    toast.info("Form cleared", "Ready for the next upload.");
+                    setStatus("Form cleared. Ready for next upload.");
+                  }}
+                >
+                  Clear &amp; next
+                </button>
+              </div>
 
-          <details className="advanced-actions">
-            <summary>Advanced: upload and publish separately</summary>
-            <div className="actions">
-              <button
-                className="btn btn--primary"
-                disabled={
-                  !user ||
-                  !videoFile ||
-                  uploadingMedia ||
-                  loading ||
-                  !cloudinaryReady
-                }
-                type="button"
-                onClick={handleUploadMedia}
-              >
-                {uploadingMedia ? "Uploading…" : "1. Upload to Cloudinary"}
-              </button>
-              <button
-                className="btn btn--success"
-                disabled={
-                  !canSubmit || loading || uploadingMedia || !studioAccess?.canPublish
-                }
-                type="submit"
-                title={
-                  !studioAccess?.canPublish
-                    ? "Requires an active adminUsers/{uid} document"
-                    : undefined
-                }
-              >
-                {loading ? "Publishing…" : "2. Publish episode"}
-              </button>
-            </div>
-          </details>
+              <details className="advanced-actions">
+                <summary>Advanced: upload and publish separately</summary>
+                <div className="actions">
+                  <button
+                    className="btn btn--primary"
+                    disabled={
+                      !user ||
+                      !videoFile ||
+                      uploadingMedia ||
+                      loading ||
+                      !cloudinaryReady
+                    }
+                    type="button"
+                    onClick={handleUploadMedia}
+                  >
+                    {uploadingMedia ? "Uploading…" : "1. Upload to Cloudinary"}
+                  </button>
+                  <button
+                    className="btn btn--success"
+                    disabled={
+                      !canSubmit ||
+                      loading ||
+                      uploadingMedia ||
+                      !studioAccess?.canPublish
+                    }
+                    type="submit"
+                    title={
+                      !studioAccess?.canPublish
+                        ? "Requires an active adminUsers/{uid} document"
+                        : undefined
+                    }
+                  >
+                    {loading ? "Publishing…" : "2. Publish episode"}
+                  </button>
+                </div>
+              </details>
+            </>
+          ) : (
+            <>
+              <MultiFileDropzone
+                label="Videos"
+                hint="Pick several clips — each becomes one episode, in this order. Thumbnails auto-generate from each video."
+                accept="video/*"
+                files={bulkFiles}
+                disabled={uploadingMedia || loading}
+                startOrder={order > 0 ? order : 1}
+                onFiles={setBulkFiles}
+              />
+
+              <p className="hint">
+                {bulkFiles.length > 0
+                  ? `${bulkFiles.length} clip(s) will publish as EP.${order > 0 ? order : 1}–EP.${(order > 0 ? order : 1) + bulkFiles.length - 1} under "${seriesTitle || activeSeriesId || "this series"}". VIP / bonus settings above apply to all.`
+                  : "Add multiple clips to publish a whole series at once."}
+              </p>
+
+              <div className="actions">
+                <button
+                  className="btn btn--success"
+                  disabled={
+                    !user ||
+                    bulkFiles.length === 0 ||
+                    uploadingMedia ||
+                    loading ||
+                    !cloudinaryReady ||
+                    !activeSeriesId.trim() ||
+                    !studioAccess?.canPublish
+                  }
+                  type="button"
+                  onClick={handleBulkUploadAndPublish}
+                  title={
+                    !studioAccess?.canPublish
+                      ? "Requires an active adminUsers/{uid} document"
+                      : undefined
+                  }
+                >
+                  {uploadingMedia || loading
+                    ? "Working…"
+                    : `Upload & Publish ${bulkFiles.length || ""} episode${bulkFiles.length === 1 ? "" : "s"}`}
+                </button>
+                <button
+                  className="btn btn--ghost"
+                  disabled={loading || uploadingMedia || bulkFiles.length === 0}
+                  type="button"
+                  onClick={() => {
+                    setBulkFiles([]);
+                    toast.info("Cleared", "Removed all selected clips.");
+                  }}
+                >
+                  Clear list
+                </button>
+              </div>
+            </>
+          )}
         </section>
       </form>
       ) : null}

@@ -16,6 +16,8 @@ abstract class AppUser with _$AppUser {
     @Default(0) int bonus,
     @Default(<String>[]) List<String> favoriteSeriesIds,
     @Default(<String>[]) List<String> unlockedEpisodeIds,
+    @Default(<String>[]) List<String> likedEpisodeIds,
+    @Default(<String>[]) List<String> followedSeriesIds,
     DateTime? lastDailyCheckIn,
     required DateTime createdAt,
   }) = _AppUser;

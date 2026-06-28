@@ -17,6 +17,9 @@ _Series _$SeriesFromJson(Map<String, dynamic> json) => _Series(
       totalDurationSec: (json['totalDurationSec'] as num?)?.toInt() ?? 0,
       createdAt: DateTime.parse(json['createdAt'] as String),
       popularity: (json['popularity'] as num?)?.toInt() ?? 0,
+      watchCount: (json['watchCount'] as num?)?.toInt() ?? 0,
+      saveCount: (json['saveCount'] as num?)?.toInt() ?? 0,
+      followerCount: (json['followerCount'] as num?)?.toInt() ?? 0,
       isPublished: json['isPublished'] as bool? ?? true,
     );
 
@@ -31,6 +34,9 @@ Map<String, dynamic> _$SeriesToJson(_Series instance) => <String, dynamic>{
       'totalDurationSec': instance.totalDurationSec,
       'createdAt': instance.createdAt.toIso8601String(),
       'popularity': instance.popularity,
+      'watchCount': instance.watchCount,
+      'saveCount': instance.saveCount,
+      'followerCount': instance.followerCount,
       'isPublished': instance.isPublished,
     };
 

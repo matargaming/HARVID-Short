@@ -24,6 +24,9 @@ mixin _$Series {
   int get totalDurationSec;
   DateTime get createdAt;
   int get popularity;
+  int get watchCount;
+  int get saveCount;
+  int get followerCount;
   bool get isPublished;
 
   /// Create a copy of Series
@@ -58,6 +61,12 @@ mixin _$Series {
                 other.createdAt == createdAt) &&
             (identical(other.popularity, popularity) ||
                 other.popularity == popularity) &&
+            (identical(other.watchCount, watchCount) ||
+                other.watchCount == watchCount) &&
+            (identical(other.saveCount, saveCount) ||
+                other.saveCount == saveCount) &&
+            (identical(other.followerCount, followerCount) ||
+                other.followerCount == followerCount) &&
             (identical(other.isPublished, isPublished) ||
                 other.isPublished == isPublished));
   }
@@ -76,11 +85,14 @@ mixin _$Series {
       totalDurationSec,
       createdAt,
       popularity,
+      watchCount,
+      saveCount,
+      followerCount,
       isPublished);
 
   @override
   String toString() {
-    return 'Series(id: $id, title: $title, description: $description, coverUrl: $coverUrl, category: $category, isVip: $isVip, episodeCount: $episodeCount, totalDurationSec: $totalDurationSec, createdAt: $createdAt, popularity: $popularity, isPublished: $isPublished)';
+    return 'Series(id: $id, title: $title, description: $description, coverUrl: $coverUrl, category: $category, isVip: $isVip, episodeCount: $episodeCount, totalDurationSec: $totalDurationSec, createdAt: $createdAt, popularity: $popularity, watchCount: $watchCount, saveCount: $saveCount, followerCount: $followerCount, isPublished: $isPublished)';
   }
 }
 
@@ -100,6 +112,9 @@ abstract mixin class $SeriesCopyWith<$Res> {
       int totalDurationSec,
       DateTime createdAt,
       int popularity,
+      int watchCount,
+      int saveCount,
+      int followerCount,
       bool isPublished});
 }
 
@@ -125,6 +140,9 @@ class _$SeriesCopyWithImpl<$Res> implements $SeriesCopyWith<$Res> {
     Object? totalDurationSec = null,
     Object? createdAt = null,
     Object? popularity = null,
+    Object? watchCount = null,
+    Object? saveCount = null,
+    Object? followerCount = null,
     Object? isPublished = null,
   }) {
     return _then(_self.copyWith(
@@ -167,6 +185,18 @@ class _$SeriesCopyWithImpl<$Res> implements $SeriesCopyWith<$Res> {
       popularity: null == popularity
           ? _self.popularity
           : popularity // ignore: cast_nullable_to_non_nullable
+              as int,
+      watchCount: null == watchCount
+          ? _self.watchCount
+          : watchCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      saveCount: null == saveCount
+          ? _self.saveCount
+          : saveCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      followerCount: null == followerCount
+          ? _self.followerCount
+          : followerCount // ignore: cast_nullable_to_non_nullable
               as int,
       isPublished: null == isPublished
           ? _self.isPublished
@@ -280,6 +310,9 @@ extension SeriesPatterns on Series {
             int totalDurationSec,
             DateTime createdAt,
             int popularity,
+            int watchCount,
+            int saveCount,
+            int followerCount,
             bool isPublished)?
         $default, {
     required TResult orElse(),
@@ -298,6 +331,9 @@ extension SeriesPatterns on Series {
             _that.totalDurationSec,
             _that.createdAt,
             _that.popularity,
+            _that.watchCount,
+            _that.saveCount,
+            _that.followerCount,
             _that.isPublished);
       case _:
         return orElse();
@@ -330,6 +366,9 @@ extension SeriesPatterns on Series {
             int totalDurationSec,
             DateTime createdAt,
             int popularity,
+            int watchCount,
+            int saveCount,
+            int followerCount,
             bool isPublished)
         $default,
   ) {
@@ -347,6 +386,9 @@ extension SeriesPatterns on Series {
             _that.totalDurationSec,
             _that.createdAt,
             _that.popularity,
+            _that.watchCount,
+            _that.saveCount,
+            _that.followerCount,
             _that.isPublished);
       case _:
         throw StateError('Unexpected subclass');
@@ -378,6 +420,9 @@ extension SeriesPatterns on Series {
             int totalDurationSec,
             DateTime createdAt,
             int popularity,
+            int watchCount,
+            int saveCount,
+            int followerCount,
             bool isPublished)?
         $default,
   ) {
@@ -395,6 +440,9 @@ extension SeriesPatterns on Series {
             _that.totalDurationSec,
             _that.createdAt,
             _that.popularity,
+            _that.watchCount,
+            _that.saveCount,
+            _that.followerCount,
             _that.isPublished);
       case _:
         return null;
@@ -416,6 +464,9 @@ class _Series implements Series {
       this.totalDurationSec = 0,
       required this.createdAt,
       this.popularity = 0,
+      this.watchCount = 0,
+      this.saveCount = 0,
+      this.followerCount = 0,
       this.isPublished = true});
   factory _Series.fromJson(Map<String, dynamic> json) => _$SeriesFromJson(json);
 
@@ -444,6 +495,15 @@ class _Series implements Series {
   @override
   @JsonKey()
   final int popularity;
+  @override
+  @JsonKey()
+  final int watchCount;
+  @override
+  @JsonKey()
+  final int saveCount;
+  @override
+  @JsonKey()
+  final int followerCount;
   @override
   @JsonKey()
   final bool isPublished;
@@ -485,6 +545,12 @@ class _Series implements Series {
                 other.createdAt == createdAt) &&
             (identical(other.popularity, popularity) ||
                 other.popularity == popularity) &&
+            (identical(other.watchCount, watchCount) ||
+                other.watchCount == watchCount) &&
+            (identical(other.saveCount, saveCount) ||
+                other.saveCount == saveCount) &&
+            (identical(other.followerCount, followerCount) ||
+                other.followerCount == followerCount) &&
             (identical(other.isPublished, isPublished) ||
                 other.isPublished == isPublished));
   }
@@ -503,11 +569,14 @@ class _Series implements Series {
       totalDurationSec,
       createdAt,
       popularity,
+      watchCount,
+      saveCount,
+      followerCount,
       isPublished);
 
   @override
   String toString() {
-    return 'Series(id: $id, title: $title, description: $description, coverUrl: $coverUrl, category: $category, isVip: $isVip, episodeCount: $episodeCount, totalDurationSec: $totalDurationSec, createdAt: $createdAt, popularity: $popularity, isPublished: $isPublished)';
+    return 'Series(id: $id, title: $title, description: $description, coverUrl: $coverUrl, category: $category, isVip: $isVip, episodeCount: $episodeCount, totalDurationSec: $totalDurationSec, createdAt: $createdAt, popularity: $popularity, watchCount: $watchCount, saveCount: $saveCount, followerCount: $followerCount, isPublished: $isPublished)';
   }
 }
 
@@ -528,6 +597,9 @@ abstract mixin class _$SeriesCopyWith<$Res> implements $SeriesCopyWith<$Res> {
       int totalDurationSec,
       DateTime createdAt,
       int popularity,
+      int watchCount,
+      int saveCount,
+      int followerCount,
       bool isPublished});
 }
 
@@ -553,6 +625,9 @@ class __$SeriesCopyWithImpl<$Res> implements _$SeriesCopyWith<$Res> {
     Object? totalDurationSec = null,
     Object? createdAt = null,
     Object? popularity = null,
+    Object? watchCount = null,
+    Object? saveCount = null,
+    Object? followerCount = null,
     Object? isPublished = null,
   }) {
     return _then(_Series(
@@ -595,6 +670,18 @@ class __$SeriesCopyWithImpl<$Res> implements _$SeriesCopyWith<$Res> {
       popularity: null == popularity
           ? _self.popularity
           : popularity // ignore: cast_nullable_to_non_nullable
+              as int,
+      watchCount: null == watchCount
+          ? _self.watchCount
+          : watchCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      saveCount: null == saveCount
+          ? _self.saveCount
+          : saveCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      followerCount: null == followerCount
+          ? _self.followerCount
+          : followerCount // ignore: cast_nullable_to_non_nullable
               as int,
       isPublished: null == isPublished
           ? _self.isPublished

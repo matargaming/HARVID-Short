@@ -20,11 +20,14 @@ Future<void> toggleSeriesSaved({
     return;
   }
 
-  final repo = ref.read(userRepositoryProvider);
   if (isSaved) {
-    await repo.unsaveSeries(userId: user.id, seriesId: seriesId);
+    await ref
+        .read(socialActionsGatewayProvider)
+        .setSeriesSaved(seriesId: seriesId, saved: false);
   } else {
-    await repo.saveSeries(userId: user.id, seriesId: seriesId);
+    await ref
+        .read(socialActionsGatewayProvider)
+        .setSeriesSaved(seriesId: seriesId, saved: true);
   }
 }
 
@@ -55,9 +58,14 @@ class SaveSeriesFilledButton extends ConsumerWidget {
 
 /// Circular glass save control for Shorts info panel.
 class SaveSeriesCircleButton extends ConsumerWidget {
-  const SaveSeriesCircleButton({super.key, required this.seriesId});
+  const SaveSeriesCircleButton({
+    super.key,
+    required this.seriesId,
+    this.countLabel = 'SAVE',
+  });
 
   final String seriesId;
+  final String countLabel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,7 +74,7 @@ class SaveSeriesCircleButton extends ConsumerWidget {
 
     return _GlassActionButton(
       icon: isSaved ? Icons.bookmark : Icons.bookmark_border,
-      label: 'SAVE',
+      label: countLabel,
       onPressed: () => toggleSeriesSaved(
         context: context,
         ref: ref,

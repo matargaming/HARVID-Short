@@ -5,14 +5,17 @@ import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/error/friendly_error.dart';
 import '../../../core/providers.dart';
 import '../../../domain/entities/episode.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../episode_player/application/episode_access.dart';
 import '../../episode_player/presentation/episode_player_view.dart';
 import '../application/shorts_feed_notifier.dart';
 import '../application/video_pre_cache_manager.dart';
+import 'shorts_action_rail.dart';
 import 'shorts_info_panel.dart';
 import 'shorts_video_progress_bar.dart';
 import 'video_card.dart';
@@ -40,23 +43,14 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
   bool _playerMounted = false;
   String? _attachedEpisodeId;
   double _playbackProgress = 0;
-  bool _panelCollapsed = false;
+  bool _isPausedByUser = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _playerController = BetterPlayerController(
-      const BetterPlayerConfiguration(
-        autoPlay: false,
-        autoDispose: false,
-        handleLifecycle: false,
-        aspectRatio: 9 / 16,
-        fit: BoxFit.cover,
-        controlsConfiguration: BetterPlayerControlsConfiguration(
-          showControls: false,
-        ),
-      ),
+      shortsPlayerConfiguration(),
     );
     _playerController.addEventsListener(_onPlayerEvent);
     _maybeShrinkWindow();
@@ -74,6 +68,7 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (shouldPauseVideoForLifecycle(state)) {
+      setState(() => _isPausedByUser = true);
       unawaited(_safePause());
     }
   }
@@ -104,9 +99,7 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
 
     final position = event.parameters?['progress'] as Duration?;
     final duration = event.parameters?['duration'] as Duration?;
-    if (position == null ||
-        duration == null ||
-        duration.inMilliseconds <= 0) {
+    if (position == null || duration == null || duration.inMilliseconds <= 0) {
       return null;
     }
 
@@ -126,6 +119,7 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
           onRetry: () => ref.invalidate(shortsFeedNotifierProvider),
         ),
         data: (state) {
+          final user = ref.watch(currentAppUserDocProvider).value;
           if (state.episodes.isEmpty) {
             return const Center(
               child: Text(
@@ -151,65 +145,102 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
 
           return Stack(
             children: [
-              PageView.builder(
-                controller: _pageController,
-                scrollDirection: Axis.vertical,
-                itemCount: state.episodes.length,
-                onPageChanged: (index) =>
-                    _onPageChanged(index, state.episodes),
-                itemBuilder: (_, index) {
-                  final episode = state.episodes[index];
-                  final isActive = index == _current;
-                  final showPlayer = isActive && _playerMounted;
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _togglePlayback,
+                child: PageView.builder(
+                  controller: _pageController,
+                  scrollDirection: Axis.vertical,
+                  itemCount: state.episodes.length,
+                  onPageChanged: (index) =>
+                      _onPageChanged(index, state.episodes),
+                  itemBuilder: (_, index) {
+                    final episode = state.episodes[index];
+                    final isActive = index == _current;
+                    final access = accessFor(episode, user);
+                    final showPlayer = isActive &&
+                        _playerMounted &&
+                        access == EpisodeAccessState.open;
 
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (showPlayer)
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                // Force the video surface to match the full
-                                // viewport so it fills edge-to-edge instead of
-                                // letterboxing to a fixed 9:16 box.
-                                if (constraints.maxHeight > 0) {
-                                  _playerController.setOverriddenAspectRatio(
-                                    constraints.maxWidth /
-                                        constraints.maxHeight,
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (showPlayer)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  // Force the video surface to match the full
+                                  // viewport so it fills edge-to-edge instead
+                                  // of letterboxing to a fixed 9:16 box.
+                                  if (constraints.maxHeight > 0) {
+                                    _playerController.setOverriddenAspectRatio(
+                                      constraints.maxWidth /
+                                          constraints.maxHeight,
+                                    );
+                                  }
+                                  return BetterPlayer(
+                                    key: ValueKey(
+                                      _attachedEpisodeId ?? 'shorts_player',
+                                    ),
+                                    controller: _playerController,
                                   );
-                                }
-                                return BetterPlayer(
-                                  key: ValueKey(
-                                    _attachedEpisodeId ?? 'shorts_player',
-                                  ),
-                                  controller: _playerController,
-                                );
-                              },
+                                },
+                              ),
                             ),
                           ),
+                        VideoCard(
+                          key: ValueKey('chrome_${episode.id}'),
+                          episode: episode,
+                          isActive: isActive,
+                          isLoading: isActive && _isLoading,
+                          hasError: isActive && _hasError,
+                          access: access,
+                          bonusBalance: user?.bonus ?? 0,
+                          onRetry: () => unawaited(
+                            _playEpisodeAt(_current, state.episodes),
+                          ),
+                          onUnlock: () => unawaited(
+                            _unlockShortEpisode(episode),
+                          ),
+                          onEarnBonus: () => context.go('/rewards'),
                         ),
-                      VideoCard(
-                        key: ValueKey('chrome_${episode.id}'),
-                        episode: episode,
-                        isActive: isActive,
-                        isLoading: isActive && _isLoading,
-                        hasError: isActive && _hasError,
-                        onRetry: () => unawaited(
-                          _playEpisodeAt(_current, state.episodes),
-                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              Center(
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: _isPausedByUser ? 1 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: Container(
+                      width: 92,
+                      height: 92,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.22),
+                        shape: BoxShape.circle,
                       ),
-                    ],
-                  );
-                },
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 70,
+                      ),
+                    ),
+                  ),
+                ),
               ),
               Positioned(
-                top: 0,
+                bottom: 0,
                 left: 0,
                 right: 0,
                 child: ShortsVideoProgressBar(
                   progress: _playbackProgress,
-                  visible: _playerMounted && !_isLoading && !_hasError,
+                  visible: _playerMounted &&
+                      !_isLoading &&
+                      !_hasError &&
+                      accessFor(activeEpisode, user) == EpisodeAccessState.open,
                 ),
               ),
               if (series != null)
@@ -217,43 +248,20 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 420),
-                    reverseDuration: const Duration(milliseconds: 360),
-                    transitionBuilder: (child, animation) {
-                      return ShortsPanelReveal(
-                        animation: animation,
-                        child: child,
-                      );
-                    },
-                    layoutBuilder: (currentChild, previousChildren) {
-                      return Stack(
-                        alignment: Alignment.bottomRight,
-                        children: [
-                          ...previousChildren,
-                          if (currentChild != null) currentChild,
-                        ],
-                      );
-                    },
-                    child: _panelCollapsed
-                        ? Align(
-                            key: const ValueKey('shorts_info_fab'),
-                            alignment: Alignment.bottomRight,
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(0, 0, 16, 12),
-                              child: SeriesInfoFab(
-                                onExpand: () =>
-                                    setState(() => _panelCollapsed = false),
-                              ),
-                            ),
-                          )
-                        : ShortsInfoPanel(
-                            key: ValueKey('shorts_info_${series.id}'),
-                            series: series,
-                            episode: activeEpisode,
-                            onCollapse: () =>
-                                setState(() => _panelCollapsed = true),
-                          ),
+                  child: ShortsInfoPanel(
+                    key: ValueKey('shorts_info_${series.id}'),
+                    series: series,
+                    episode: activeEpisode,
+                  ),
+                ),
+              if (series != null)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: ShortsActionRail(
+                    key: ValueKey('shorts_actions_${activeEpisode.id}'),
+                    series: series,
+                    episode: activeEpisode,
                   ),
                 ),
             ],
@@ -270,6 +278,7 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
       _isLoading = true;
       _hasError = false;
       _playbackProgress = 0;
+      _isPausedByUser = false;
     });
     _prefetchUrls(episodes);
     unawaited(_playEpisodeAt(index, episodes));
@@ -282,6 +291,21 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
 
     final episode = episodes[index];
     final generation = ++_playGeneration;
+    final user = ref.read(currentAppUserDocProvider).value;
+    if (accessFor(episode, user) != EpisodeAccessState.open) {
+      await _safePause();
+      if (!mounted || generation != _playGeneration) {
+        return;
+      }
+      setState(() {
+        _attachedEpisodeId = null;
+        _isLoading = false;
+        _hasError = false;
+        _playbackProgress = 0;
+        _isPausedByUser = false;
+      });
+      return;
+    }
 
     if (!_playerMounted) {
       setState(() {
@@ -289,6 +313,7 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
         _hasError = false;
         _playerMounted = true;
         _playbackProgress = 0;
+        _isPausedByUser = false;
       });
       await _waitEndOfFrame();
       if (!mounted || generation != _playGeneration) {
@@ -299,6 +324,7 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
         _isLoading = true;
         _hasError = false;
         _playbackProgress = 0;
+        _isPausedByUser = false;
       });
     }
 
@@ -358,9 +384,32 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
   }
 
   void _prefetchUrls(List<Episode> episodes) {
+    final user = ref.read(currentAppUserDocProvider).value;
     for (final episode in episodes) {
-      if (_keepIds.contains(episode.id)) {
+      if (_keepIds.contains(episode.id) &&
+          accessFor(episode, user) == EpisodeAccessState.open) {
         unawaited(_urlFor(episode));
+      }
+    }
+  }
+
+  Future<void> _unlockShortEpisode(Episode episode) async {
+    try {
+      await ref.read(rewardGatewayProvider).unlockEpisode(episode.id);
+      ref.invalidate(currentAppUserDocProvider);
+      ref.invalidate(shortsFeedNotifierProvider);
+      if (!mounted) {
+        return;
+      }
+      unawaited(
+        _playEpisodeAt(
+          _current,
+          ref.read(shortsFeedNotifierProvider).value?.episodes ?? const [],
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        context.go('/rewards');
       }
     }
   }
@@ -385,6 +434,20 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
     }
   }
 
+  void _togglePlayback() {
+    if (!_playerMounted || _isLoading || _hasError) {
+      return;
+    }
+
+    if (_isPausedByUser) {
+      setState(() => _isPausedByUser = false);
+      unawaited(_safePlay());
+    } else {
+      setState(() => _isPausedByUser = true);
+      unawaited(_safePause());
+    }
+  }
+
   void _maybeShrinkWindow() {
     if (!Platform.isAndroid) {
       return;
@@ -406,4 +469,18 @@ class _ShortsPageState extends ConsumerState<ShortsPage>
       _preCache.windowSize = 2;
     }
   }
+}
+
+BetterPlayerConfiguration shortsPlayerConfiguration() {
+  return const BetterPlayerConfiguration(
+    autoPlay: false,
+    autoDispose: false,
+    handleLifecycle: false,
+    looping: true,
+    aspectRatio: 9 / 16,
+    fit: BoxFit.cover,
+    controlsConfiguration: BetterPlayerControlsConfiguration(
+      showControls: false,
+    ),
+  );
 }
