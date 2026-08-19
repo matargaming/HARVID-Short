@@ -35,7 +35,7 @@ if (project.hasProperty("dart-defines")) {
 val admobAppId = dartDefines["ADMOB_APP_ID_ANDROID"] ?: defaultAdMobAppId
 
 android {
-    namespace = "com.shortigo.shortigo"
+    namespace = "com.harvid.short"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
