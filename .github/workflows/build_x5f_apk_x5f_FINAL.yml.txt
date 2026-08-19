@@ -1,0 +1,45 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.1'
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        env:
+          GRADLE_OPTS: "-Xmx4G"
+        run: |
+          flutter build apk --release --split-per-abi \
+            --dart-define=REVENUE_CAT_API_KEY_ANDROID=dummy \
+            --dart-define=REVENUE_CAT_API_KEY_IOS=dummy \
+            --dart-define=SENTRY_DSN= \
+            --dart-define=APP_ENV=production
+
+      - name: Upload APK to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/app/outputs/flutter-apk/app-*-release.apk
+          tag_name: android-build-${{ github.run_number }}
+          generate_release_notes: true
