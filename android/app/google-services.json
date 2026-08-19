@@ -1,7 +1,7 @@
 {
   "project_info": {
     "project_number": "482485542495",
-    "project_id": "harvid-short",
+    "project_id": "com.harvid.short",
     "storage_bucket": "harvid-short.firebasestorage.app"
   },
   "client": [
@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:482485542495:android:4e71ad5f8ac98446d585ea",
         "android_client_info": {
-          "package_name": "com.shortigo.shortigo"
+          "package_name": "com.harvid.shortapp"
         }
       },
       "oauth_client": [],
