@@ -34,7 +34,7 @@ dependencies:
   path: ^1.9.0
 
   # Models
-  freezed_annotation: ^3.1.0
+  freezed_annotation: ^3.0.0
   json_annotation: ^4.9.0
 
   # Video
@@ -67,7 +67,7 @@ dev_dependencies:
 
   # Codegen
   build_runner: ^2.4.13
-  freezed: ^3.1.0
+  freezed: ^3.0.6
   json_serializable: ^6.8.0
   riverpod_generator: 2.6.5
   custom_lint: 0.7.5
