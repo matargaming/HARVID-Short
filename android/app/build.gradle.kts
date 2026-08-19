@@ -35,7 +35,7 @@ if (project.hasProperty("dart-defines")) {
 val admobAppId = dartDefines["ADMOB_APP_ID_ANDROID"] ?: defaultAdMobAppId
 
 android {
-    namespace = "com.harvid.short"
+    namespace = "com.harvid.shortapp"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -50,7 +50,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.harvid.short"
+        applicationId = "com.harvid.shortapp"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
